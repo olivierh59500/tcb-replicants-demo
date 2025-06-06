@@ -100,7 +100,7 @@ main.go
 
 - Original demo by TCB-Replicants (1989)
 - JavaScript version by DrSkull (2015)
-- Go/Ebiten port by [Your Name]
+- Go/Ebiten port by Olivier Houte
 - YM player library by olivierh59500
 
 ## License
