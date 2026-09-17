@@ -1,1 +1,13 @@
 .DS_Store
+
+# Local Go binaries
+/demo
+/tcbreplicants
+
+# Android generated files
+android/.gradle/
+android/build/
+android/app/build/
+android/app/libs/*.aar
+android/app/libs/*-sources.jar
+android/local.properties

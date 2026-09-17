@@ -1,114 +1,104 @@
-# TCB-Replicants Demo - Go/Ebiten Port
+# TCB-Replicants Demo — Go/Ebitengine port
 
-A faithful port of the classic Atari ST demo "Weird Dream" by TCB-Replicants to Go using the Ebiten game engine.
+A port of the classic Atari ST **Weird Dream** intro by TCB and The Replicants.
+The same game package runs on desktop and Android.
 
-## Features
+## Highlights
 
-- **Classic scrolling text** with sine wave deformation effects
-- **Bouncing logos** with 3D depth simulation
-- **Multi-layer starfield** with parallax scrolling
-- **YM music playback** using the ym-player library
-- **Smooth animations** optimized for modern systems
+- sine-deformed bitmap scroll text;
+- bouncing TCB and Replicants logos;
+- three-layer parallax starfield;
+- embedded YM music synthesized at 48 kHz;
+- wide-screen Android layout with touch controls in the side areas;
+- allocation-free audio callback and cached render resources.
 
 ## Requirements
 
-- Go 1.19 or higher
-- Ebiten v2
-- ym-player library for YM/SNDH music playback
+- Go 1.25 or newer;
+- Ebitengine 2.9.11;
+- `ym-player` revision `v0.0.0-20260913215440-3f73bdca82e5`.
 
-## Installation
+For Android builds, the supplied configuration uses Java 17, Android SDK 36,
+NDK 28.2.13676358, Gradle 8.11.1 and Android Gradle Plugin 8.10.1.
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/tcb-replicants-demo
-cd tcb-replicants-demo
+## Desktop
+
+Run directly:
+
+```sh
+go run ./cmd/tcbreplicants
 ```
 
-2. Install dependencies:
-```bash
-go get github.com/hajimehoshi/ebiten/v2
-go get github.com/olivierh59500/ym-player
+Or build a binary:
+
+```sh
+go build -o tcbreplicants ./cmd/tcbreplicants
+./tcbreplicants
 ```
 
-3. Place the required assets in the `assets/` directory:
-   - `union_sprite.png` - Bouncing sprite image
-   - `tcb_logo.png` - TCB logo
-   - `rep_logo.png` - Replicants logo
-   - `tcb_rep_font.png` - Bitmap font for scrolling text (640x300 pixels, 6 rows of 10 characters, 64x50 pixels each)
-   - `tcb_rep_splash.png` - Splash screen image
-   - `Rollout.ym` - YM music file
+Keyboard controls:
 
-## Building and Running
+- `↑` / `↓`: volume;
+- `+` / `-`: animation speed.
 
-```bash
-go build -o demo
-./demo
+When the desktop window is wider than the original 16:10 scene, the Android
+touch controls are also shown and can be previewed with the mouse.
+
+## Android / Pixel
+
+With one authorized arm64 Android device connected over USB:
+
+```sh
+./scripts/run-android.sh
 ```
 
-Or simply:
-```bash
-go run main.go
+The script:
+
+1. finds the Android SDK and Java 17;
+2. builds `android/app/libs/tcbreplicants.aar` with the Ebitengine 2.9.11 tool;
+3. assembles the debug APK;
+4. verifies that exactly one device is authorized;
+5. installs and launches `com.olivierh.tcbreplicants/.MainActivity`.
+
+The resulting APK is at:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Controls
+The landscape layout keeps the original 640×400 scene centered and uses the
+side areas for four multitouch buttons:
 
-- **F1** - Switch to song 1
-- **F2** - Switch to song 2
-- **Up/Down** - Adjust volume
-- **ESC** - Exit demo
+- `S+` / `S-`: animation speed;
+- `V+` / `V-`: volume.
 
-## Technical Details
+## Validation
 
-### Optimizations
-
-1. **Pre-rendered logo frames**: Instead of scaling logos in real-time, all scale variations are pre-rendered during initialization for better performance.
-
-2. **Efficient scroll buffer**: Uses a wider work buffer to handle text deformation without clipping at screen edges.
-
-3. **Optimized starfield**: Simple rectangle drawing instead of image blitting for stars.
-
-4. **Frame-based animation**: All animations are tied to a virtual blanking (VBL) counter for consistent timing.
-
-### Key Differences from JavaScript Version
-
-- **Slower animation speed**: The original JavaScript version runs very fast on modern browsers. This port intentionally slows down scrolling and bounce effects for better visibility.
-
-- **Wider scroll buffer**: Ensures characters don't disappear at screen edges during deformation.
-
-- **Simplified audio**: Uses the ym-player library for direct YM/SNDH playback instead of web audio APIs.
+```sh
+go test ./...
+go test -race ./...
+go vet ./...
+go test -run '^$' -bench BenchmarkYMPlayerRead4096 -benchmem
+```
 
 ## Architecture
 
-```
-main.go
-├── Game struct - Main game state
-├── Star struct - Starfield stars
-├── ScrollText struct - Scrolling text manager
-├── Logo struct - Bouncing logo state
-└── Various animation functions
+```text
+game.go, audio.go, controls.go   shared game package
+cmd/tcbreplicants/              desktop launcher and redundant-draw guard
+mobile/                          ebitenmobile bridge
+android/                         Java/Gradle Android shell
+scripts/run-android.sh           AAR → APK → ADB workflow
+assets/                          resources embedded by Go
 ```
 
-### Main Components
-
-1. **Splash Screen**: Displays the intro image line by line
-2. **Starfield**: Three layers of stars with different speeds and colors
-3. **Scrolling Text**: Deformed text with sine wave effects
-4. **Bouncing Logos**: TCB and Replicants logos with 3D scaling
-5. **Sprites**: Union sprites bouncing at screen edges
+The YM stream uses one 4096-sample mono buffer, writes 16-bit little-endian
+stereo PCM directly into Ebitengine's destination buffer, and opens the audio
+device only from the first game update so Android's activity is ready.
 
 ## Credits
 
-- Original demo by TCB-Replicants (1989)
+- Original demo by TCB and The Replicants (1989)
 - JavaScript version by DrSkull (2015)
-- Go/Ebiten port by Olivier Houte
-- YM player library by olivierh59500
-
-## License
-
-This port respects the original demo's legacy. The original demo code was released under the MIT License. Please check individual asset licenses.
-
-## Notes
-
-- The demo requires proper YM/SNDH files for music playback
-- Performance may vary depending on system capabilities
-- The deformation effects are computationally intensive but optimized for modern hardware
+- Go/Ebitengine port by Olivier Houte
+- YM player library by Olivier Houte
