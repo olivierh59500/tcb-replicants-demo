@@ -102,3 +102,9 @@ device only from the first game update so Android's activity is ready.
 - JavaScript version by DrSkull (2015)
 - Go/Ebitengine port by Olivier Houte
 - YM player library by Olivier Houte
+
+## Optional DCK version
+
+The original implementation remains at its original paths. Run it with `go run ./cmd/tcbreplicants`.
+
+The construction-kit version is in [dck/](dck/README.md). Run `go run ./dck/cmd/tcbreplicants` from this directory. Both versions share the original assets.

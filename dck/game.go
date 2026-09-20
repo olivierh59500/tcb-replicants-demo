@@ -1,10 +1,15 @@
 // Package tcbreplicants implements the TCB-Replicants demo remake.
 package tcbreplicants
 
+import originalassets "tcb-replicants-demo"
+
 import (
 	"bytes"
-	_ "embed"
+
 	"fmt"
+	kit "github.com/olivierh59500/democonstructionkit"
+	"github.com/olivierh59500/democonstructionkit/composite"
+	"github.com/olivierh59500/democonstructionkit/scrolling"
 	"image"
 	"image/color"
 	_ "image/png"
@@ -26,23 +31,22 @@ const (
 	starSpeed    = 1.0
 )
 
-//go:embed assets/union_sprite.png
-var spriteData []byte
+var spriteData = originalassets.
+	DCKAssetSpriteData()
 
-//go:embed assets/tcb_logo.png
-var tcbLogoData []byte
+var tcbLogoData = originalassets.
+	DCKAssetTcbLogoData()
 
-//go:embed assets/rep_logo.png
-var repLogoData []byte
+var repLogoData = originalassets.
+	DCKAssetRepLogoData()
 
-//go:embed assets/tcb_rep_font.png
-var scrollFontData []byte
+var scrollFontData = originalassets.
+	DCKAssetScrollFontData()
 
-//go:embed assets/tcb_rep_splash.png
-var splashData []byte
+var splashData = originalassets.
+	DCKAssetSplashData()
 
-//go:embed assets/Rollout.ym
-var ymData []byte
+var ymData = originalassets.DCKAssetYmData()
 
 type Star struct {
 	x     float64
@@ -52,6 +56,7 @@ type Star struct {
 }
 
 type ScrollText struct {
+	renderer      *scrolling.Scrolling
 	tiles         []int
 	x             float64
 	totalWidth    float64
@@ -460,34 +465,38 @@ func (g *Game) drawScrollText(dst *ebiten.Image) {
 	st := g.scrollText
 	st.workBuffer.Clear()
 	st.deformBuffer.Clear()
-
-	firstTile := 0
-	if st.x < 0 {
-		firstTile = max(0, int(-st.x/float64(st.charWidth))-1)
-	}
-	x := st.x + float64(firstTile*st.charWidth)
-	for index := firstTile; index < len(st.tiles) && x < float64(st.workBuffer.Bounds().Dx()); index++ {
-		tile := st.tiles[index]
-		if tile >= 0 && tile < len(st.glyphs) && x > -float64(st.charWidth) {
-			var op ebiten.DrawImageOptions
-			op.GeoM.Translate(x, 0)
-			st.workBuffer.DrawImage(st.glyphs[tile], &op)
+	if st.renderer == nil {
+		images := make([]*ebiten.Image, len(st.tiles))
+		for i, tile := range st.tiles {
+			if tile >= 0 && tile < len(st.glyphs) {
+				images[i] = st.glyphs[tile]
+			}
 		}
-		x += float64(st.charWidth)
+		var err error
+		st.renderer, err = scrolling.FromImages(images, float64(st.charWidth))
+		if err != nil {
+			panic(err)
+		}
 	}
-
-	for y := 0; y < st.charHeight/2; y++ {
-		offsetX := int(g.scrollX[(g.vbl+y)%g.scrollXMod] + 64)
-		row := st.deformRows[y*st.deformRowSpan+offsetX-st.deformRowMin]
-		var op ebiten.DrawImageOptions
-		op.GeoM.Translate(0, float64(y*2))
-		st.deformBuffer.DrawImage(row, &op)
+	state := scrolling.IdentityState()
+	state.X = st.x
+	state.Map = func(s scrolling.Sample, op *ebiten.DrawImageOptions) bool {
+		return s.X > -float64(st.charWidth) && s.X < float64(st.workBuffer.Bounds().Dx())
 	}
-
-	for column, slice := range st.deformColumns {
-		yOffset := 35 + math.Cos(g.offsetScr+float64(column)*0.1)*35
-		drawImageAtFloat(dst, slice, float64(column*16), 280+yOffset)
-	}
+	st.renderer.DrawAt(st.workBuffer, state)
+	frame := kit.Frame{Tick: uint64(g.vbl)}
+	composite.Strips{Thickness: 2, Count: st.charHeight / 2, Map: func(i int, r image.Rectangle, f kit.Frame) composite.Strip {
+		x := int(g.scrollX[(int(f.Tick)+i)%g.scrollXMod] + 64)
+		op := ebiten.DrawImageOptions{}
+		op.GeoM.Translate(0, float64(i*2))
+		return composite.Strip{Source: image.Rect(x, i*2, x+ScreenWidth, (i+1)*2), Options: op}
+	}}.Draw(st.deformBuffer, st.workBuffer, frame)
+	composite.Strips{Axis: composite.Columns, Thickness: 16, Count: ScreenWidth / 16, Map: func(i int, r image.Rectangle, f kit.Frame) composite.Strip {
+		yOffset := 35 + math.Cos(g.offsetScr+float64(i)*.1)*35
+		op := ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(i*16), 280+yOffset)
+		return composite.Strip{Source: r, Options: op}
+	}}.Draw(dst, st.deformBuffer, frame)
 }
 
 func (g *Game) drawLogos(dst *ebiten.Image) {
@@ -519,12 +528,9 @@ func (g *Game) drawLogos(dst *ebiten.Image) {
 }
 
 func drawCentered(dst, source *ebiten.Image, centerX int, centerY float64) {
-	var op ebiten.DrawImageOptions
-	op.GeoM.Translate(
-		float64(centerX-source.Bounds().Dx()/2),
-		centerY-float64(source.Bounds().Dy())/2,
-	)
-	dst.DrawImage(source, &op)
+	op := ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(centerX-source.Bounds().Dx()/2), centerY-float64(source.Bounds().Dy())/2)
+	composite.Instance{Image: source, Options: op}.Draw(dst)
 }
 
 func (g *Game) drawSprites(dst *ebiten.Image) {
@@ -537,9 +543,9 @@ func drawImageAt(dst, source *ebiten.Image, x, y int) {
 }
 
 func drawImageAtFloat(dst, source *ebiten.Image, x, y float64) {
-	var op ebiten.DrawImageOptions
+	op := ebiten.DrawImageOptions{}
 	op.GeoM.Translate(x, y)
-	dst.DrawImage(source, &op)
+	composite.Instance{Image: source, Options: op}.Draw(dst)
 }
 
 func (g *Game) drawScene(dst *ebiten.Image) {
