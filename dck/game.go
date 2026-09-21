@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/audio"
+	audio "github.com/olivierh59500/democonstructionkit/sound/output"
 )
 
 const (
