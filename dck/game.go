@@ -60,21 +60,7 @@ type Star struct {
 	image *ebiten.Image
 }
 
-type ScrollText struct {
-	renderer      *scrolling.Scrolling
-	tiles         []int
-	x             float64
-	totalWidth    float64
-	glyphs        []*ebiten.Image
-	charWidth     int
-	charHeight    int
-	workBuffer    *ebiten.Image
-	deformBuffer  *ebiten.Image
-	deformRows    []*ebiten.Image
-	deformRowMin  int
-	deformRowSpan int
-	deformColumns []*ebiten.Image
-}
+const replicantsMessage = `      YO, SHITY-FUCKY-LAMEEUUUUURS !!!  AFTER HARD LABOUR, THE MEGAMIGHTY CAREBEARS AND THE FAMOUS REPLICANTS ARE PROUD TO PRESENT    - WEIRD DREAM -   CRACKED BY RATBOY.  THIS INTRO WAS CODED BY NICK, JAS AND AN THE MOTHERFUCKIN COOL AT THE FIRST MEETING TCB - REPLICANTS...    OK, NOW ALL THE MEMBERS OF THE WILL WRITE A PART OF THIS SCROLLTEXT...          HEY, IT'S RATBOY ON THE KEYBOARD, I DON'T KNOW WHAT TO WRITE AND I HATE WRITING SCROLLTEXT.  I'LL TELL YOU MORE DETAILS ABOUT THIS MEETING. TCB ARRIVED FIVE DAYS AGO. SO, THEY DECIDED TO CODE THIS FANTASTIC INTRO. AFTER 25 LITRES OF COKE, 1 MONOPOLY PLAY, 1 BOTTLE OF WHISKY, 20 BIG TOM, SOME PING-PONG MATCHES (OK, JAS !!  YOU'RE BETTER THAN ME, BUT THE REVENGE OF RATBOY WILL BE TERRIBLE !), THIS INTRO IS FINISHED...`
 
 // Game contains the shared desktop and mobile game state.
 type Game struct {
@@ -95,13 +81,10 @@ type Game struct {
 	audioReady   bool
 	musicStarted bool
 
-	rng        *rand.Rand
-	stars      []Star
-	scrollText *ScrollText
-	scrollX    []float64
-	scrollXMod int
+	rng          *rand.Rand
+	stars        []Star
+	scrollEffect *scrolling.Scrolling
 
-	vbl        int
 	splashTime int
 	splashLine int
 	offsetScr  float64
@@ -129,47 +112,7 @@ func NewGame() *Game {
 		speedMultiplier: 1.4,
 		layoutWidth:     ScreenWidth,
 	}
-	g.initScrollX()
 	return g
-}
-
-func (g *Game) initScrollX() {
-	const values = 389 + 120 + 68 + 389 + 36 + 189
-	g.scrollX = make([]float64, 0, values)
-
-	stp1 := 7.0 / 180.0 * math.Pi
-	stp2 := 3.0 / 180.0 * math.Pi
-	for i := 0; i < 389; i++ {
-		g.scrollX = append(g.scrollX, 20*math.Sin(float64(i)*stp1)+30*math.Cos(float64(i)*stp2))
-	}
-
-	stp1 = 72.0 / 180.0 * math.Pi
-	for i := 0; i < 120; i++ {
-		g.scrollX = append(g.scrollX, 4*math.Sin(float64(i)*stp1))
-	}
-
-	stp1 = 8.0 / 180.0 * math.Pi
-	for i := 0; i < 68; i++ {
-		g.scrollX = append(g.scrollX, 40*math.Sin(float64(i)*stp1))
-	}
-
-	stp1 = 7.0 / 180.0 * math.Pi
-	stp2 = 3.0 / 180.0 * math.Pi
-	for i := 0; i < 389; i++ {
-		g.scrollX = append(g.scrollX, 20*math.Sin(float64(i)*stp1)+30*math.Cos(float64(i)*stp2))
-	}
-
-	stp1 = 72.0 / 180.0 * math.Pi
-	for i := 0; i < 36; i++ {
-		g.scrollX = append(g.scrollX, 4*math.Sin(float64(i)*stp1))
-	}
-
-	stp1 = 8.0 / 180.0 * math.Pi
-	for i := 0; i < 189; i++ {
-		g.scrollX = append(g.scrollX, 30*math.Sin(float64(i)*stp1))
-	}
-
-	g.scrollXMod = len(g.scrollX)
 }
 
 func (g *Game) loadImages() error {
@@ -229,61 +172,6 @@ func (g *Game) initStarfield() {
 	}
 }
 
-func (g *Game) initScrollText() {
-	const text = `      YO, SHITY-FUCKY-LAMEEUUUUURS !!!  AFTER HARD LABOUR, THE MEGAMIGHTY CAREBEARS AND THE FAMOUS REPLICANTS ARE PROUD TO PRESENT    - WEIRD DREAM -   CRACKED BY RATBOY.  THIS INTRO WAS CODED BY NICK, JAS AND AN THE MOTHERFUCKIN COOL AT THE FIRST MEETING TCB - REPLICANTS...    OK, NOW ALL THE MEMBERS OF THE WILL WRITE A PART OF THIS SCROLLTEXT...          HEY, IT'S RATBOY ON THE KEYBOARD, I DON'T KNOW WHAT TO WRITE AND I HATE WRITING SCROLLTEXT.  I'LL TELL YOU MORE DETAILS ABOUT THIS MEETING. TCB ARRIVED FIVE DAYS AGO. SO, THEY DECIDED TO CODE THIS FANTASTIC INTRO. AFTER 25 LITRES OF COKE, 1 MONOPOLY PLAY, 1 BOTTLE OF WHISKY, 20 BIG TOM, SOME PING-PONG MATCHES (OK, JAS !!  YOU'RE BETTER THAN ME, BUT THE REVENGE OF RATBOY WILL BE TERRIBLE !), THIS INTRO IS FINISHED...`
-
-	const (
-		charWidth   = 64
-		charHeight  = 50
-		charsPerRow = 10
-	)
-	glyphCount := (g.scrollFont.Bounds().Dy() / charHeight) * charsPerRow
-	glyphs, err := scrolling.GridImages(g.scrollFont, image.Pt(charWidth, charHeight), charsPerRow, glyphCount)
-	if err != nil {
-		panic(err)
-	}
-
-	tiles := textTiles(text)
-	workBuffer := ebiten.NewImage(ScreenWidth+512, scrollHeight)
-	deformBuffer := ebiten.NewImage(ScreenWidth, scrollHeight)
-
-	firstOffset := int(g.scrollX[0] + 64)
-	minOffset, maxOffset := firstOffset, firstOffset
-	for _, value := range g.scrollX {
-		offset := int(value + 64)
-		minOffset = min(minOffset, offset)
-		maxOffset = max(maxOffset, offset)
-	}
-	rowSpan := maxOffset - minOffset + 1
-	rows := make([]*ebiten.Image, charHeight/2*rowSpan)
-	for y := 0; y < charHeight/2; y++ {
-		for offset := minOffset; offset <= maxOffset; offset++ {
-			rect := image.Rect(offset, y*2, offset+ScreenWidth, (y+1)*2)
-			rows[y*rowSpan+offset-minOffset] = workBuffer.SubImage(rect).(*ebiten.Image)
-		}
-	}
-
-	columns := make([]*ebiten.Image, ScreenWidth/16)
-	for column := range columns {
-		x := column * 16
-		columns[column] = deformBuffer.SubImage(image.Rect(x, 0, x+16, scrollHeight)).(*ebiten.Image)
-	}
-
-	g.scrollText = &ScrollText{
-		tiles:         tiles,
-		totalWidth:    float64(len(tiles) * charWidth),
-		glyphs:        glyphs,
-		charWidth:     charWidth,
-		charHeight:    charHeight,
-		workBuffer:    workBuffer,
-		deformBuffer:  deformBuffer,
-		deformRows:    rows,
-		deformRowMin:  minOffset,
-		deformRowSpan: rowSpan,
-		deformColumns: columns,
-	}
-}
-
 func (g *Game) preRenderLogoFrames() {
 	g.tcbFrames = preRenderFrames(g.tcbLogo, 40)
 	g.repFrames = preRenderFrames(g.repLogo, 35)
@@ -326,7 +214,15 @@ func (g *Game) Init() error {
 
 	g.scene = ebiten.NewImage(ScreenWidth, ScreenHeight)
 	g.initStarfield()
-	g.initScrollText()
+	atlas, err := presets.FontAtlas("tcb-replicants-demo", g.scrollFont)
+	if err != nil {
+		return err
+	}
+	config := presets.ReplicantsRowColumn(atlas, replicantsMessage)
+	g.scrollEffect, err = scrolling.New(scrolling.Config{RowColumn: &config})
+	if err != nil {
+		return err
+	}
 	g.preRenderLogoFrames()
 	g.cacheSplashRows()
 	g.controlUI = newControlSprites()
@@ -367,12 +263,13 @@ func (g *Game) Update() error {
 		}
 	}
 
-	g.scrollText.x -= scrollSpeed * g.speedMultiplier
-	if g.scrollText.x < -g.scrollText.totalWidth {
-		g.scrollText.x = ScreenWidth
+	if err := g.scrollEffect.SetTransportMultiplier(g.speedMultiplier); err != nil {
+		return err
+	}
+	if err := g.scrollEffect.Update(kit.Frame{}); err != nil {
+		return err
 	}
 
-	g.vbl++
 	g.offsetScr += 0.1 * g.speedMultiplier
 	g.offRep += (2.0 / 180.0 * math.Pi) * g.speedMultiplier
 	g.offTcb += (7.0 / 180.0 * math.Pi) * g.speedMultiplier
@@ -394,64 +291,6 @@ func (g *Game) drawStarfield(dst *ebiten.Image) {
 		op.GeoM.Translate(star.x, star.y)
 		dst.DrawImage(star.image, &op)
 	}
-}
-
-var charToFontIndex = func() func(rune) (int, bool) {
-	lookup, err := presets.TileLookup("tcb-replicants-demo", true)
-	if err != nil {
-		panic(err)
-	}
-	return lookup
-}()
-
-func textTiles(text string) []int {
-	tiles := make([]int, 0, len(text))
-	for _, ch := range text {
-		index, ok := charToFontIndex(ch)
-		if !ok {
-			index = -1
-		}
-		tiles = append(tiles, index)
-	}
-	return tiles
-}
-
-func (g *Game) drawScrollText(dst *ebiten.Image) {
-	st := g.scrollText
-	st.workBuffer.Clear()
-	st.deformBuffer.Clear()
-	if st.renderer == nil {
-		images := make([]*ebiten.Image, len(st.tiles))
-		for i, tile := range st.tiles {
-			if tile >= 0 && tile < len(st.glyphs) {
-				images[i] = st.glyphs[tile]
-			}
-		}
-		var err error
-		st.renderer, err = scrolling.FromImages(images, float64(st.charWidth))
-		if err != nil {
-			panic(err)
-		}
-	}
-	state := scrolling.IdentityState()
-	state.X = st.x
-	state.Map = func(s scrolling.Sample, op *ebiten.DrawImageOptions) bool {
-		return s.X > -float64(st.charWidth) && s.X < float64(st.workBuffer.Bounds().Dx())
-	}
-	st.renderer.DrawAt(st.workBuffer, state)
-	frame := kit.Frame{Tick: uint64(g.vbl)}
-	composite.Strips{Thickness: 2, Count: st.charHeight / 2, Map: func(i int, r image.Rectangle, f kit.Frame) composite.Strip {
-		x := int(g.scrollX[(int(f.Tick)+i)%g.scrollXMod] + 64)
-		op := ebiten.DrawImageOptions{}
-		op.GeoM.Translate(0, float64(i*2))
-		return composite.Strip{Source: image.Rect(x, i*2, x+ScreenWidth, (i+1)*2), Options: op}
-	}}.Draw(st.deformBuffer, st.workBuffer, frame)
-	composite.Strips{Axis: composite.Columns, Thickness: 16, Count: ScreenWidth / 16, Map: func(i int, r image.Rectangle, f kit.Frame) composite.Strip {
-		yOffset := 35 + math.Cos(g.offsetScr+float64(i)*.1)*35
-		op := ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(i*16), 280+yOffset)
-		return composite.Strip{Source: r, Options: op}
-	}}.Draw(dst, st.deformBuffer, frame)
 }
 
 func (g *Game) drawLogos(dst *ebiten.Image) {
@@ -512,7 +351,7 @@ func (g *Game) drawScene(dst *ebiten.Image) {
 	dst.Fill(color.Black)
 	g.drawStarfield(dst)
 	g.drawLogos(dst)
-	g.drawScrollText(dst)
+	g.scrollEffect.Draw(dst)
 	g.drawSprites(dst)
 }
 
@@ -543,6 +382,9 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // Cleanup releases audio resources owned by the desktop game instance.
 func (g *Game) Cleanup() {
+	if g.scrollEffect != nil {
+		g.scrollEffect.Close()
+	}
 	if g.audioPlayer != nil {
 		if err := g.audioPlayer.Close(); err != nil {
 			log.Printf("close audio player: %v", err)
