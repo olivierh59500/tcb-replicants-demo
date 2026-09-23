@@ -1,17 +1,20 @@
 // Package tcbreplicants implements the TCB-Replicants demo remake.
 package tcbreplicants
 
-import originalassets "tcb-replicants-demo"
-
 import (
 	"bytes"
-
 	"fmt"
+	originalassets "tcb-replicants-demo"
+
+	"github.com/olivierh59500/democonstructionkit/sound"
+
+	"image"
+	"image/color"
+
 	kit "github.com/olivierh59500/democonstructionkit"
 	"github.com/olivierh59500/democonstructionkit/composite"
 	"github.com/olivierh59500/democonstructionkit/scrolling"
-	"image"
-	"image/color"
+
 	_ "image/png"
 	"log"
 	"math"
@@ -19,6 +22,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+
 	audio "github.com/olivierh59500/democonstructionkit/sound/output"
 )
 
@@ -86,7 +90,7 @@ type Game struct {
 
 	audioContext *audio.Context
 	audioPlayer  *audio.Player
-	ymPlayer     *YMPlayer
+	musicStream  *sound.Stream
 	audioReady   bool
 	musicStarted bool
 
@@ -594,10 +598,10 @@ func (g *Game) Cleanup() {
 		}
 		g.audioPlayer = nil
 	}
-	if g.ymPlayer != nil {
-		if err := g.ymPlayer.Close(); err != nil {
-			log.Printf("close YM player: %v", err)
+	if g.musicStream != nil {
+		if err := g.musicStream.Close(); err != nil {
+			log.Printf("close music stream: %v", err)
 		}
-		g.ymPlayer = nil
+		g.musicStream = nil
 	}
 }
