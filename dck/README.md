@@ -14,3 +14,9 @@ The three layers of 35 stars now use `sprites.AnimatedField` and the editable
 wrap, preserved overshoot and a newly sampled height. The three solid-color
 materials are created once by `sprites.NewSolidFrames`. The original source
 remains at the repository root.
+
+The two logos use `sprites.CoupledLogoPair`. It caches 35 and 40 quantized
+sizes once, then selects frames from two linked depth paths and paints the
+farther logo first. `presets.ReplicantsLogoPair` retains the original phase
+steps, motion amplitudes, frame rules and centered placement while exposing
+them for reuse with other artwork.

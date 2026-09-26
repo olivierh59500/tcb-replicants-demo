@@ -64,8 +64,6 @@ type Game struct {
 	splash     *ebiten.Image
 	scene      *ebiten.Image
 
-	tcbFrames  []*ebiten.Image
-	repFrames  []*ebiten.Image
 	splashRows []*ebiten.Image
 
 	audioContext *audio.Context
@@ -77,13 +75,12 @@ type Game struct {
 	rng          *rand.Rand
 	stars        *sprites.AnimatedField
 	starFrames   []*ebiten.Image
+	logos        *sprites.CoupledLogoPair
 	scrollEffect *scrolling.Scrolling
 
 	splashTime int
 	splashLine int
 	offsetScr  float64
-	offRep     float64
-	offTcb     float64
 
 	speedMultiplier float64
 
@@ -139,26 +136,6 @@ func decodeImage(name string, data []byte) (*ebiten.Image, error) {
 	return ebiten.NewImageFromImage(decoded), nil
 }
 
-func (g *Game) preRenderLogoFrames() {
-	g.tcbFrames = preRenderFrames(g.tcbLogo, 40)
-	g.repFrames = preRenderFrames(g.repLogo, 35)
-}
-
-func preRenderFrames(source *ebiten.Image, count int) []*ebiten.Image {
-	frames := make([]*ebiten.Image, count)
-	for i := range frames {
-		scale := float64(i+1) / float64(count)
-		width := max(1, int(float64(source.Bounds().Dx())*scale))
-		height := max(1, int(float64(source.Bounds().Dy())*scale))
-		frame := ebiten.NewImage(width, height)
-		var op ebiten.DrawImageOptions
-		op.GeoM.Scale(scale, scale)
-		frame.DrawImage(source, &op)
-		frames[i] = frame
-	}
-	return frames
-}
-
 func (g *Game) cacheSplashRows() {
 	const rowHeight = 40
 	rowCount := (g.splash.Bounds().Dy() + rowHeight - 1) / rowHeight
@@ -202,7 +179,10 @@ func (g *Game) Init() error {
 	if err != nil {
 		return err
 	}
-	g.preRenderLogoFrames()
+	g.logos, err = sprites.NewCoupledLogoPair(presets.ReplicantsLogoPair(g.repLogo, g.tcbLogo))
+	if err != nil {
+		return err
+	}
 	g.cacheSplashRows()
 	g.controlUI = newControlSprites()
 	g.initialized = true
@@ -248,8 +228,12 @@ func (g *Game) Update() error {
 	}
 
 	g.offsetScr += 0.1 * g.speedMultiplier
-	g.offRep += (2.0 / 180.0 * math.Pi) * g.speedMultiplier
-	g.offTcb += (7.0 / 180.0 * math.Pi) * g.speedMultiplier
+	if err := g.logos.SetSpeedMultiplier(g.speedMultiplier); err != nil {
+		return err
+	}
+	if err := g.logos.Update(kit.Frame{}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -259,40 +243,6 @@ func (g *Game) drawSplash(dst *ebiten.Image) {
 	for row := 0; row < visibleRows; row++ {
 		drawImageAt(dst, g.splashRows[row], 0, row*40)
 	}
-}
-
-func (g *Game) drawLogos(dst *ebiten.Image) {
-	zRep := (1 + math.Sin(g.offRep)) / 2
-	yRep := 140 + (math.Cos(g.offRep)+math.Sin(g.offRep))*40
-	zTCB := zRep + math.Cos(g.offTcb)/8
-	yTCB := yRep + math.Sin(g.offTcb)*(70*zRep)
-
-	repFrame := min(int(zRep*35), len(g.repFrames)-1)
-	tcbFrame := min(int(4+zTCB*32), len(g.tcbFrames)-1)
-	repFrame = max(repFrame, 0)
-	tcbFrame = max(tcbFrame, 0)
-
-	if zTCB >= zRep {
-		if repFrame > 0 {
-			drawCentered(dst, g.repFrames[repFrame], 320, yRep)
-		}
-		if tcbFrame > 0 {
-			drawCentered(dst, g.tcbFrames[tcbFrame], 320, yTCB)
-		}
-		return
-	}
-	if tcbFrame > 0 {
-		drawCentered(dst, g.tcbFrames[tcbFrame], 320, yTCB)
-	}
-	if repFrame > 0 {
-		drawCentered(dst, g.repFrames[repFrame], 320, yRep)
-	}
-}
-
-func drawCentered(dst, source *ebiten.Image, centerX int, centerY float64) {
-	op := ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(centerX-source.Bounds().Dx()/2), centerY-float64(source.Bounds().Dy())/2)
-	composite.Instance{Image: source, Options: op}.Draw(dst)
 }
 
 func (g *Game) drawSprites(dst *ebiten.Image) {
@@ -318,7 +268,7 @@ func (g *Game) drawScene(dst *ebiten.Image) {
 
 	dst.Fill(color.Black)
 	g.stars.Draw(dst)
-	g.drawLogos(dst)
+	g.logos.Draw(dst)
 	g.scrollEffect.Draw(dst)
 	g.drawSprites(dst)
 }
@@ -350,6 +300,10 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // Cleanup releases audio resources owned by the desktop game instance.
 func (g *Game) Cleanup() {
+	if g.logos != nil {
+		_ = g.logos.Close()
+		g.logos = nil
+	}
 	for _, frame := range g.starFrames {
 		frame.Deallocate()
 	}
