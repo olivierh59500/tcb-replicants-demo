@@ -28,3 +28,9 @@ The grid geometry, order, cadence and hold are editable for another image.
 The two foreground sprites now use `sprites.Train` with
 `presets.ReplicantsBouncingSprites`: one shared rectified wave, a quarter-cycle
 phase difference and editable spacing replace the local sine/cosine draw code.
+The train now owns its 0.1-step phase and accepts the live speed multiplier;
+the demo no longer stores a separate foreground phase. `OwnTime` can be turned
+off for a production that supplies an absolute or music-driven `Frame.Time`.
+Nine deterministic complete-frame GPU captures around the splash handoff and
+through frame 2,400 match the preceding DCK revision pixel for pixel. Run the
+opt-in capture with `go test -tags dck_fidelity_rendercheck -run '^$' ./dck`.

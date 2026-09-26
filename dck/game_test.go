@@ -9,7 +9,8 @@ import (
 
 func TestForegroundTrainMatchesAuthoredRectifiedPhases(t *testing.T) {
 	config := presets.ReplicantsBouncingSprites(nil)
-	if config.Count != 2 || config.X.Offset != 32 || config.Spacing.X != 480 || config.Y.Wave == nil {
+	if config.Count != 2 || config.X.Offset != 32 || config.Spacing.X != 480 || config.Y.Wave == nil ||
+		!config.OwnTime || config.TimeStep != .1 {
 		t.Fatal("foreground sprite geometry changed")
 	}
 	phase := 0.0

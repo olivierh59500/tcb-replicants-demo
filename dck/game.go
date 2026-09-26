@@ -78,8 +78,6 @@ type Game struct {
 	bouncing     *sprites.Train
 	scrollEffect *scrolling.Scrolling
 
-	offsetScr float64
-
 	speedMultiplier float64
 
 	layoutWidth      int
@@ -217,8 +215,10 @@ func (g *Game) Update() error {
 		return err
 	}
 
-	g.offsetScr += 0.1 * g.speedMultiplier
-	if err := g.bouncing.Update(kit.Frame{Time: g.offsetScr}); err != nil {
+	if err := g.bouncing.SetSpeedMultiplier(g.speedMultiplier); err != nil {
+		return err
+	}
+	if err := g.bouncing.Update(kit.Frame{}); err != nil {
 		return err
 	}
 	if err := g.logos.SetSpeedMultiplier(g.speedMultiplier); err != nil {
