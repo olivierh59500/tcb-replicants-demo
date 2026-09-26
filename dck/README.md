@@ -20,3 +20,7 @@ sizes once, then selects frames from two linked depth paths and paints the
 farther logo first. `presets.ReplicantsLogoPair` retains the original phase
 steps, motion amplitudes, frame rules and centered placement while exposing
 them for reuse with other artwork.
+
+The splash screen now uses `composite.BlockReveal`: it reveals cached 40-pixel
+rows every three ticks, holds the complete image, then hands off at tick 100.
+The grid geometry, order, cadence and hold are editable for another image.

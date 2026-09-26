@@ -64,7 +64,7 @@ type Game struct {
 	splash     *ebiten.Image
 	scene      *ebiten.Image
 
-	splashRows []*ebiten.Image
+	splashReveal *composite.BlockReveal
 
 	audioContext *audio.Context
 	audioPlayer  *audio.Player
@@ -78,9 +78,7 @@ type Game struct {
 	logos        *sprites.CoupledLogoPair
 	scrollEffect *scrolling.Scrolling
 
-	splashTime int
-	splashLine int
-	offsetScr  float64
+	offsetScr float64
 
 	speedMultiplier float64
 
@@ -91,7 +89,6 @@ type Game struct {
 	controlUI        controlSprites
 
 	initialized bool
-	splashDone  bool
 }
 
 // NewGame constructs state without opening platform services. In particular,
@@ -136,17 +133,6 @@ func decodeImage(name string, data []byte) (*ebiten.Image, error) {
 	return ebiten.NewImageFromImage(decoded), nil
 }
 
-func (g *Game) cacheSplashRows() {
-	const rowHeight = 40
-	rowCount := (g.splash.Bounds().Dy() + rowHeight - 1) / rowHeight
-	g.splashRows = make([]*ebiten.Image, rowCount)
-	for row := range g.splashRows {
-		y := row * rowHeight
-		bottom := min(y+rowHeight, g.splash.Bounds().Dy())
-		g.splashRows[row] = g.splash.SubImage(image.Rect(0, y, g.splash.Bounds().Dx(), bottom)).(*ebiten.Image)
-	}
-}
-
 // Init creates GPU resources. It is idempotent and runs from Update.
 func (g *Game) Init() error {
 	if g.initialized {
@@ -183,7 +169,10 @@ func (g *Game) Init() error {
 	if err != nil {
 		return err
 	}
-	g.cacheSplashRows()
+	g.splashReveal, err = composite.NewBlockReveal(presets.ReplicantsSplash(g.splash))
+	if err != nil {
+		return err
+	}
 	g.controlUI = newControlSprites()
 	g.initialized = true
 	return nil
@@ -203,12 +192,9 @@ func (g *Game) Update() error {
 
 	g.updateInput()
 
-	if !g.splashDone {
-		g.splashTime++
-		if g.splashTime >= 100 {
-			g.splashDone = true
-		} else if g.splashTime%3 == 0 && g.splashLine < ScreenHeight {
-			g.splashLine = min(g.splashLine+40, ScreenHeight)
+	if !g.splashReveal.Done() {
+		if err := g.splashReveal.Update(kit.Frame{}); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -237,14 +223,6 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func (g *Game) drawSplash(dst *ebiten.Image) {
-	dst.Fill(color.RGBA{R: 0xE0, G: 0xE0, B: 0xE0, A: 0xFF})
-	visibleRows := min((g.splashLine+39)/40, len(g.splashRows))
-	for row := 0; row < visibleRows; row++ {
-		drawImageAt(dst, g.splashRows[row], 0, row*40)
-	}
-}
-
 func (g *Game) drawSprites(dst *ebiten.Image) {
 	drawImageAtFloat(dst, g.sprite, 32, 326-math.Abs(math.Cos(g.offsetScr)*24))
 	drawImageAtFloat(dst, g.sprite, 512, 326-math.Abs(math.Sin(g.offsetScr)*24))
@@ -261,8 +239,8 @@ func drawImageAtFloat(dst, source *ebiten.Image, x, y float64) {
 }
 
 func (g *Game) drawScene(dst *ebiten.Image) {
-	if !g.splashDone {
-		g.drawSplash(dst)
+	if !g.splashReveal.Done() {
+		g.splashReveal.Draw(dst)
 		return
 	}
 
@@ -300,6 +278,10 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // Cleanup releases audio resources owned by the desktop game instance.
 func (g *Game) Cleanup() {
+	if g.splashReveal != nil {
+		_ = g.splashReveal.Close()
+		g.splashReveal = nil
+	}
 	if g.logos != nil {
 		_ = g.logos.Close()
 		g.logos = nil
