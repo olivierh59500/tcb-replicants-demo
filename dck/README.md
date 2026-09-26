@@ -34,3 +34,9 @@ off for a production that supplies an absolute or music-driven `Frame.Time`.
 Nine deterministic complete-frame GPU captures around the splash handoff and
 through frame 2,400 match the preceding DCK revision pixel for pixel. Run the
 opt-in capture with `go test -tags dck_fidelity_rendercheck -run '^$' ./dck`.
+The current DCK APK was installed on a Pixel 10a (Android 17/API 37). Twelve
+SurfaceFlinger history samples yielded 744 distinct presented-frame intervals:
+p95 16.768 ms, maximum 18.365 ms, and none above 20 ms. Process PSS was
+228,712 KiB, of which Android reported 116,256 KiB as graphics memory;
+thermal status stayed at 0. These sampled windows do not prove long-run
+battery or whole-demo performance.
