@@ -15,6 +15,7 @@ import (
 	kit "github.com/olivierh59500/democonstructionkit"
 	"github.com/olivierh59500/democonstructionkit/composite"
 	"github.com/olivierh59500/democonstructionkit/scrolling"
+	"github.com/olivierh59500/democonstructionkit/sprites"
 
 	_ "image/png"
 	"log"
@@ -33,7 +34,6 @@ const (
 
 	scrollHeight = 50
 	scrollSpeed  = 4.0
-	starSpeed    = 1.0
 )
 
 var spriteData = originalassets.
@@ -52,13 +52,6 @@ var splashData = originalassets.
 	DCKAssetSplashData()
 
 var ymData = originalassets.DCKAssetYmData()
-
-type Star struct {
-	x     float64
-	y     float64
-	speed float64
-	image *ebiten.Image
-}
 
 const replicantsMessage = `      YO, SHITY-FUCKY-LAMEEUUUUURS !!!  AFTER HARD LABOUR, THE MEGAMIGHTY CAREBEARS AND THE FAMOUS REPLICANTS ARE PROUD TO PRESENT    - WEIRD DREAM -   CRACKED BY RATBOY.  THIS INTRO WAS CODED BY NICK, JAS AND AN THE MOTHERFUCKIN COOL AT THE FIRST MEETING TCB - REPLICANTS...    OK, NOW ALL THE MEMBERS OF THE WILL WRITE A PART OF THIS SCROLLTEXT...          HEY, IT'S RATBOY ON THE KEYBOARD, I DON'T KNOW WHAT TO WRITE AND I HATE WRITING SCROLLTEXT.  I'LL TELL YOU MORE DETAILS ABOUT THIS MEETING. TCB ARRIVED FIVE DAYS AGO. SO, THEY DECIDED TO CODE THIS FANTASTIC INTRO. AFTER 25 LITRES OF COKE, 1 MONOPOLY PLAY, 1 BOTTLE OF WHISKY, 20 BIG TOM, SOME PING-PONG MATCHES (OK, JAS !!  YOU'RE BETTER THAN ME, BUT THE REVENGE OF RATBOY WILL BE TERRIBLE !), THIS INTRO IS FINISHED...`
 
@@ -82,7 +75,8 @@ type Game struct {
 	musicStarted bool
 
 	rng          *rand.Rand
-	stars        []Star
+	stars        *sprites.AnimatedField
+	starFrames   []*ebiten.Image
 	scrollEffect *scrolling.Scrolling
 
 	splashTime int
@@ -108,7 +102,6 @@ type Game struct {
 func NewGame() *Game {
 	g := &Game{
 		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
-		stars:           make([]Star, 0, 105),
 		speedMultiplier: 1.4,
 		layoutWidth:     ScreenWidth,
 	}
@@ -144,32 +137,6 @@ func decodeImage(name string, data []byte) (*ebiten.Image, error) {
 		return nil, fmt.Errorf("decode %s: %w", name, err)
 	}
 	return ebiten.NewImageFromImage(decoded), nil
-}
-
-func (g *Game) initStarfield() {
-	params := [...]struct {
-		count int
-		speed float64
-		color color.Color
-		size  int
-	}{
-		{35, 11.2 * starSpeed, color.RGBA{R: 0xE0, G: 0xA0, B: 0xA0, A: 0xFF}, 2},
-		{35, 5.6 * starSpeed, color.RGBA{R: 0xC0, G: 0x60, B: 0x60, A: 0xFF}, 2},
-		{35, 2.8 * starSpeed, color.RGBA{R: 0x80, G: 0x40, B: 0x40, A: 0xFF}, 2},
-	}
-
-	for _, param := range params {
-		starImage := ebiten.NewImage(param.size, param.size)
-		starImage.Fill(param.color)
-		for range param.count {
-			g.stars = append(g.stars, Star{
-				x:     float64(g.rng.Intn(ScreenWidth)),
-				y:     float64(g.rng.Intn(280)),
-				speed: param.speed,
-				image: starImage,
-			})
-		}
-	}
 }
 
 func (g *Game) preRenderLogoFrames() {
@@ -213,7 +180,19 @@ func (g *Game) Init() error {
 	}
 
 	g.scene = ebiten.NewImage(ScreenWidth, ScreenHeight)
-	g.initStarfield()
+	var err error
+	g.starFrames, err = sprites.NewSolidFrames(presets.ReplicantsStarMaterials())
+	if err != nil {
+		return err
+	}
+	starConfig, err := presets.ReplicantsStars(g.starFrames, presets.DefaultReplicantsStarOptions(g.rng.Intn))
+	if err != nil {
+		return err
+	}
+	g.stars, err = sprites.NewAnimatedField(starConfig)
+	if err != nil {
+		return err
+	}
 	atlas, err := presets.FontAtlas("tcb-replicants-demo", g.scrollFont)
 	if err != nil {
 		return err
@@ -254,13 +233,11 @@ func (g *Game) Update() error {
 		return nil
 	}
 
-	for i := range g.stars {
-		star := &g.stars[i]
-		star.x += star.speed * g.speedMultiplier
-		if star.x > ScreenWidth {
-			star.x -= ScreenWidth
-			star.y = float64(g.rng.Intn(280))
-		}
+	if err := g.stars.Motion().SetSpeedMultiplier(g.speedMultiplier); err != nil {
+		return err
+	}
+	if err := g.stars.Update(kit.Frame{}); err != nil {
+		return err
 	}
 
 	if err := g.scrollEffect.SetTransportMultiplier(g.speedMultiplier); err != nil {
@@ -281,15 +258,6 @@ func (g *Game) drawSplash(dst *ebiten.Image) {
 	visibleRows := min((g.splashLine+39)/40, len(g.splashRows))
 	for row := 0; row < visibleRows; row++ {
 		drawImageAt(dst, g.splashRows[row], 0, row*40)
-	}
-}
-
-func (g *Game) drawStarfield(dst *ebiten.Image) {
-	for i := range g.stars {
-		star := &g.stars[i]
-		var op ebiten.DrawImageOptions
-		op.GeoM.Translate(star.x, star.y)
-		dst.DrawImage(star.image, &op)
 	}
 }
 
@@ -349,7 +317,7 @@ func (g *Game) drawScene(dst *ebiten.Image) {
 	}
 
 	dst.Fill(color.Black)
-	g.drawStarfield(dst)
+	g.stars.Draw(dst)
 	g.drawLogos(dst)
 	g.scrollEffect.Draw(dst)
 	g.drawSprites(dst)
@@ -382,6 +350,10 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // Cleanup releases audio resources owned by the desktop game instance.
 func (g *Game) Cleanup() {
+	for _, frame := range g.starFrames {
+		frame.Deallocate()
+	}
+	g.starFrames = nil
 	if g.scrollEffect != nil {
 		g.scrollEffect.Close()
 	}

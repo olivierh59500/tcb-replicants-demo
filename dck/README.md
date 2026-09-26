@@ -8,3 +8,9 @@ The choreography and assets remain in this repository. Reusable rendering and
 effects come from the published `github.com/olivierh59500/democonstructionkit`
 module pinned in `go.mod`. Music is opened with `sound.Open`; DCK selects the decoder from the asset and
 provides the configured stereo PCM format. The demo keeps its playback level and loop settings.
+
+The three layers of 35 stars now use `sprites.AnimatedField` and the editable
+`presets.ReplicantsStars` recipe. DCK keeps per-star speed, the strict right-edge
+wrap, preserved overshoot and a newly sampled height. The three solid-color
+materials are created once by `sprites.NewSolidFrames`. The original source
+remains at the repository root.
