@@ -24,3 +24,7 @@ them for reuse with other artwork.
 The splash screen now uses `composite.BlockReveal`: it reveals cached 40-pixel
 rows every three ticks, holds the complete image, then hands off at tick 100.
 The grid geometry, order, cadence and hold are editable for another image.
+
+The two foreground sprites now use `sprites.Train` with
+`presets.ReplicantsBouncingSprites`: one shared rectified wave, a quarter-cycle
+phase difference and editable spacing replace the local sine/cosine draw code.

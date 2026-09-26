@@ -19,7 +19,6 @@ import (
 
 	_ "image/png"
 	"log"
-	"math"
 	"math/rand"
 	"time"
 
@@ -76,6 +75,7 @@ type Game struct {
 	stars        *sprites.AnimatedField
 	starFrames   []*ebiten.Image
 	logos        *sprites.CoupledLogoPair
+	bouncing     *sprites.Train
 	scrollEffect *scrolling.Scrolling
 
 	offsetScr float64
@@ -173,6 +173,10 @@ func (g *Game) Init() error {
 	if err != nil {
 		return err
 	}
+	g.bouncing, err = sprites.NewTrain(presets.ReplicantsBouncingSprites(g.sprite))
+	if err != nil {
+		return err
+	}
 	g.controlUI = newControlSprites()
 	g.initialized = true
 	return nil
@@ -214,6 +218,9 @@ func (g *Game) Update() error {
 	}
 
 	g.offsetScr += 0.1 * g.speedMultiplier
+	if err := g.bouncing.Update(kit.Frame{Time: g.offsetScr}); err != nil {
+		return err
+	}
 	if err := g.logos.SetSpeedMultiplier(g.speedMultiplier); err != nil {
 		return err
 	}
@@ -221,11 +228,6 @@ func (g *Game) Update() error {
 		return err
 	}
 	return nil
-}
-
-func (g *Game) drawSprites(dst *ebiten.Image) {
-	drawImageAtFloat(dst, g.sprite, 32, 326-math.Abs(math.Cos(g.offsetScr)*24))
-	drawImageAtFloat(dst, g.sprite, 512, 326-math.Abs(math.Sin(g.offsetScr)*24))
 }
 
 func drawImageAt(dst, source *ebiten.Image, x, y int) {
@@ -248,7 +250,7 @@ func (g *Game) drawScene(dst *ebiten.Image) {
 	g.stars.Draw(dst)
 	g.logos.Draw(dst)
 	g.scrollEffect.Draw(dst)
-	g.drawSprites(dst)
+	g.bouncing.Draw(dst)
 }
 
 // Draw renders the fixed-size scene centered within the current logical view.
