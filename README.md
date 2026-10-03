@@ -3,6 +3,25 @@
 A port of the classic Atari ST **Weird Dream** intro by TCB and The Replicants.
 The same game package runs on desktop and Android.
 
+<!-- Project showcase -->
+## Screenshots
+
+[![The Replicants and TEX lettering above a curved scroller and starfield](docs/media/screenshot-1.png)](docs/media/screenshot-1.png)
+
+The Replicants and TEX lettering above a curved scroller and starfield.
+
+## Video
+
+[![Animated preview of TCB Replicants Demo](docs/media/preview.gif)](https://github.com/olivierh59500/tcb-replicants-demo/raw/refs/heads/main/docs/media/preview.mp4)
+
+**[Watch or download the 24-second MP4 preview with sound](https://github.com/olivierh59500/tcb-replicants-demo/raw/refs/heads/main/docs/media/preview.mp4)**
+
+This preview is captured from the Go production.
+
+The animated image is silent; the MP4 includes the soundtrack.
+
+<!-- End project showcase -->
+
 ## Highlights
 
 - sine-deformed bitmap scroll text;
